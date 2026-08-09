@@ -139,7 +139,6 @@ sddm-theme-breeze
 
 # === Plymouth boot splash ===
 plymouth
-plymouth-theme-spinner
 
 # === X11 fallback drivers (for ancient GPUs / VM console) ===
 xorg-server
@@ -174,7 +173,7 @@ qt6ct
 qt5-svg
 qt6-svg
 xcursor-dmz
-breeze-cursor-theme
+breeze
 
 # === Web browser (only one) ===
 firefox
@@ -203,9 +202,6 @@ galculator
 bauh
 flatpak
 snapd
-appimage-launcher
-yay
-paru
 pacman-contrib
 pkgfile
 reflector
@@ -250,7 +246,6 @@ nvidia-utils
 nvidia-settings
 lib32-nvidia-utils
 nvidia-prime
-optimus-manager
 primus
 lib32-primus
 
