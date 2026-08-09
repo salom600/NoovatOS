@@ -19,13 +19,13 @@ EOF
 case "$choice" in
     *drivers*)        novatos-setup-drivers & ;;
     *gaming*)         novatos-setup-gaming & ;;
-    *App Store*)      bauh & ;;
+    *"App Store"*)    bauh & ;;
     *browser*)        firefox & ;;
-    *file manager*)   thunar & ;;
+    *"file manager"*) thunar & ;;
     *terminal*)       kitty & ;;
     *Wine*)           novatos-windows-compat cfg & ;;
     *Migrate*)        novatos-migrate-from-windows & ;;
-    *Quick start*)    novatos-welcome & ;;
+    *"Quick start"*)  novatos-welcome & ;;
     *System*)         hyprctl dispatch exec 'kitty -e btop' & ;;
     *Calamares*)      calamares & ;;
     *) exit 0 ;;
