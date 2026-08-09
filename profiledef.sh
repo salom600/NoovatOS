@@ -8,9 +8,9 @@ iso_publisher="NovatOS Project <https://github.com/salom600/NoovatOS>"
 iso_application="NovatOS Linux — lightweight Wayland distribution for Windows migrants"
 iso_version="$(date +%Y.%m.%d)"
 iso_install_dir="novatos"
-iso_bootloader="syslinux grub"
-# Hybrid ISO: BIOS + UEFI + bootable from USB via Ventoy/Rufus/dd
-iso_bootmodes="bios.syslinux.mbr bios.syslinux.eltorito uefi-x64.systemd-boot.esp uefi-x64.systemd-boot.eltorito"
+iso_bootloader="grub"
+# Hybrid ISO: BIOS (syslinux+grub) + UEFI (grub) + bootable from USB via Ventoy/Rufus/dd
+iso_bootmodes="bios.syslinux.mbr bios.syslinux.eltorito uefi-x64.grub.esp uefi-x64.grub.eltorito"
 # Also export as 'bootmodes' (some mkarchiso versions read this directly)
 bootmodes="$iso_bootmodes"
 arch="x86_64"
