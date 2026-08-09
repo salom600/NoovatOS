@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS Setup — Drivers
+#  GUI-driven driver installer. Lists detected hardware and
+#  installs the right driver packages via pacman.
+#  Invoked from the Welcome app or from the launcher.
+# ============================================================
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v pkexec >/dev/null; then exec pkexec "$0" "$@"
+    elif command -v sudo >/dev/null; then exec sudo "$0" "$@"
+    else echo "Run as root."; exit 1; fi
+fi
+
+title="NovatOS — Driver Setup"
+lines=("Detected hardware:\n")
+
+gpu="$(lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' || echo 'unknown')"
+lines+=("$gpu\n")
+
+# Detect wireless
+wifi="$(lspci -nn 2>/dev/null | grep -iE 'network|wireless' || echo 'none')"
+lines+=("Wireless: $wifi\n")
+
+echo -e "${lines[@]}"
+
+pkgs=()
+
+# --- GPU ---
+if printf '%s' "$gpu" | grep -qiE 'intel'; then
+    pkgs+=(mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-driver libva-intel-driver)
+elif printf '%s' "$gpu" | grep -qiE 'amd|radeon'; then
+    pkgs+=(mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon libva-mesa-driver mesa-vdpau)
+    # Older r600 (HD 2000-7000) needs legacy firmware
+    if printf '%s' "$gpu" | grep -qiE 'radeon hd [2-7]'; then
+        pkgs+=(linux-firmware)
+    fi
+elif printf '%s' "$gpu" | grep -qiE 'nvidia|geforce'; then
+    # If running kernel is linux-lts, install nvidia-lts; else nvidia-dkms
+    if uname -r | grep -q 'lts'; then
+        pkgs+=(nvidia-lts lib32-nvidia-utils)
+    else
+        pkgs+=(nvidia-dkms lib32-nvidia-utils nvidia-utils)
+    fi
+    pkgs+=(nvidia-settings nvidia-prime)
+fi
+
+# --- Virtual GPU ---
+if printf '%s' "$gpu" | grep -qiE 'virtualbox'; then
+    pkgs+=(virtualbox-guest-utils virtualbox-guest-modules-arch)
+elif printf '%s' "$gpu" | grep -qiE 'vmware'; then
+    pkgs+=(open-vm-tools open-vm-tools-desktop xf86-video-vmware)
+elif printf '%s' "$gpu" | grep -qiE 'qemu'; then
+    pkgs+=(spice-vdagent xf86-video-qxl)
+fi
+
+# --- Wireless (Broadcom needs special treatment) ---
+if printf '%s' "$wifi" | grep -qiE 'broadcom'; then
+    pkgs+=(broadcom-wl-dkms)
+elif printf '%s' "$wifi" | grep -qiE 'realtek'; then
+    pkgs+=(rtl88xxau-aircrack-dkms)
+fi
+
+# Always include CPU microcode + base essentials
+cpu_vendor="$(grep -m1 'vendor_id' /proc/cpuinfo | awk '{print $3}')"
+case "$cpu_vendor" in
+    GenuineIntel) pkgs+=(intel-ucode);;
+    AuthenticAMD) pkgs+=(amd-ucode);;
+esac
+
+if [ "${#pkgs[@]}" -eq 0 ]; then
+    echo "No additional drivers needed."
+    exit 0
+fi
+
+echo "Installing: ${pkgs[*]}"
+pacman -Syu --noconfirm --needed "${pkgs[@]}"
+
+# Rebuild initramfs
+mkinitcpio -P
+
+echo
+echo "✓ Driver setup complete. Please reboot to apply GPU driver changes."

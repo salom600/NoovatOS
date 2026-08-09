@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=NovatOS Sway (fallback)
+Comment=Sway — Wayland fallback for older GPUs that can't run Hyprland
+Exec=sway
+Type=Application
+DesktopNames=Sway;Wayland;NovatOS

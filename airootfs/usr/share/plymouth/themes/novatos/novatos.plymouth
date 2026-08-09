@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=NovatOS
+Description=NovatOS boot splash — modern, animated spinner with logo
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/novatos
+ScriptFile=/usr/share/plymouth/themes/novatos/novatos.script

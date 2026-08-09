@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS Setup — App Store (bauh + Flatpak remotes)
+#  Pre-configures:
+#    • Flathub remote (default)
+#    • Snapd socket
+#    • bauh default to manage: pacman + AUR + Flatpak + Snap + AppImage
+# ============================================================
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v pkexec >/dev/null; then exec pkexec "$0" "$@"
+    elif command -v sudo >/dev/null; then exec sudo "$0" "$@"
+    else echo "Run as root."; exit 1; fi
+fi
+
+# 1) Make sure flatpak & snapd are enabled
+systemctl enable --now snapd.socket 2>/dev/null || true
+systemctl enable --now snapd.apparmor 2>/dev/null || true
+ln -sf /var/lib/snapd/snap /snap 2>/dev/null || true
+
+# 2) Add Flathub remote
+if ! flatpak remotes | grep -q flathub; then
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+fi
+
+# 3) Pre-install a curated starter set as flatpaks (very popular apps,
+#    so users don't have to manually find them — Windows-migrant friendliness)
+flatpak install -y --noninteractive flathub \
+    org.mozilla.firefox \
+    com.visualstudio.code \
+    com.spotify.Client \
+    com.discordapp.Discord \
+    com.google.Chrome \
+    org.libreoffice.LibreOffice \
+    org.gimp.GIMP \
+    org.inkscape.Inkscape \
+    org.onlyoffice.desktopeditors \
+    org.telegram.desktop \
+    org.videolan.VLC \
+    com.obsproject.Studio \
+    com.valvesoftware.Steam \
+    com.heroicgameslauncher.HGL \
+    net.lutris.Lutris \
+    || true   # don't fail the whole script if one app fails
+
+# 4) Configure bauh defaults (per-user)
+regular_user="$(getent passwd 1000 | cut -d: -f1)"
+if [ -n "$regular_user" ]; then
+    home="/home/$regular_user"
+    mkdir -p "$home/.config/bauh"
+    cat > "$home/.config/bauh/envs.json" <<'EOF'
+{
+    "flatpak": {"enabled": true, "installation": "system"},
+    "snap":    {"enabled": true},
+    "appimage": {"enabled": true},
+    "aur":     {"enabled": true, "review_mode": "comments"},
+    "native":  {"enabled": true}
+}
+EOF
+    chown -R "$regular_user:$regular_user" "$home/.config/bauh"
+fi
+
+echo "✓ App store configured. Launch it from the taskbar 🛍 icon."

@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS Welcome — first-run GUI helper
+#  Shows on first login. Lets user:
+#    • Install drivers (auto-detected)
+#    • Install gaming stack (Steam / Proton / Lutris)
+#    • Open App Store (bauh)
+#    • Migrate data from Windows
+#    • Read quick-start guide
+#
+#  Uses yad / zenity for GUI (both available).
+# ============================================================
+set -u
+
+GUI=""
+if command -v yad >/dev/null 2>&1; then GUI=yad
+elif command -v zenity >/dev/null 2>&1; then GUI=zenity
+else
+    notify-send "NovatOS Welcome" "Install yad or zenity to use the welcome app." 2>/dev/null || true
+    exit 1
+fi
+
+WELCOME_FLAG="${HOME}/.config/novatos/welcome-shown"
+mkdir -p "$(dirname "$WELCOME_FLAG")"
+
+# Show every login until user dismisses with "Don't show again"
+show_welcome() {
+    case "$GUI" in
+        yad)
+            yad --title="Welcome to NovatOS" \
+                --width=640 --height=520 --center \
+                --image="/usr/share/wallpapers/novatos/default.jpg" \
+                --image-on-top \
+                --text="<span font='18' weight='bold'>Welcome to NovatOS</span>
+<span foreground='#4cc2ff'>The lightest, newest, most powerful Linux.</span>
+
+Pick an action below to get started. Everything is one click away — no commands needed.
+
+• <b>Install Drivers</b>     — auto-detects your GPU, wireless, and peripherals
+• <b>Install Gaming Stack</b> — Steam, Proton-GE, Lutris, Wine, Heroic, gamemode
+• <b>Open App Store</b>      — install any app from AUR, Flatpak, Snap, AppImage
+• <b>Migrate from Windows</b> — import bookmarks, files, settings
+• <b>Quick Start Guide</b>   — keyboard shortcuts and how-tos
+" \
+                --button="Install Drivers 🛠:0" \
+                --button="Install Games 🎮:2" \
+                --button="App Store 🛍:3" \
+                --button="Migrate from Windows 🔄:4" \
+                --button="Quick Guide 📖:5" \
+                --button="Don't show again ✗:1"
+            ;;
+        zenity)
+            zenity --list --title="Welcome to NovatOS" \
+                --text="Welcome to NovatOS — pick an action:" \
+                --width=500 --height=400 \
+                --column="Action" --column="Description" \
+                "Install Drivers 🛠" "Auto-detect GPU, wireless, peripherals" \
+                "Install Games 🎮" "Steam, Proton-GE, Lutris, Wine" \
+                "App Store 🛍" "Install any app (AUR, Flatpak, Snap, AppImage)" \
+                "Migrate from Windows 🔄" "Import bookmarks, files, settings" \
+                "Quick Guide 📖" "Keyboard shortcuts and how-tos"
+            ;;
+    esac
+}
+
+main() {
+    while true; do
+        choice="$(show_welcome)"
+        rc=$?
+        case "$rc" in
+            1|252) touch "$WELCOME_FLAG"; exit 0;;
+        esac
+
+        case "$choice" in
+            "Install Drivers"*|"0")
+                nohup novatos-setup-drivers >/tmp/novatos-drivers.log 2>&1 &
+                ;;
+            "Install Games"*|"2")
+                nohup novatos-setup-gaming >/tmp/novatos-gaming.log 2>&1 &
+                ;;
+            "App Store"*|"3")
+                nohup bauh >/tmp/novatos-store.log 2>&1 &
+                ;;
+            "Migrate from Windows"*|"4")
+                nohup novatos-migrate-from-windows >/tmp/novatos-migrate.log 2>&1 &
+                ;;
+            "Quick Guide"*|"5")
+                yad --title="NovatOS Quick Start" --width=480 --height=520 \
+                    --text="<b>Keyboard shortcuts</b>
+<b>Win + Space</b>    Open Start menu
+<b>Win + Enter</b>    Open terminal
+<b>Win + E</b>        Open file manager
+<b>Win + W</b>        Open web browser
+<b>Win + A</b>        Open App Store
+<b>Win + Q</b>        Close window
+<b>Win + ←/→</b>      Move window left/right (snap)
+<b>Win + 1..9</b>     Switch workspace
+<b>Win + Shift + ←/→</b>  Move window to workspace
+<b>PrtSc</b>          Screenshot
+<b>Win + Shift + P</b> Region screenshot
+
+<b>Tips for Windows 11 migrants</b>
+• The taskbar at the bottom works just like Windows
+• Click the ❖ icon (or press Win+Space) for the Start menu
+• The 🛍 icon opens the App Store
+• Right-click any .exe file → 'Run with Wine'
+• Steam + Proton run most Windows games without setup
+" 2>/dev/null || \
+                zenity --info --title="NovatOS Quick Start" --text="Win+Space: Start menu. Win+E: Files. Win+W: Browser." 2>/dev/null
+                ;;
+            "")
+                break;;
+        esac
+    done
+}
+
+main

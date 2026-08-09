@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS — Windows-app compatibility layer
+#  Wraps Wine: makes Windows .exe / .msi / .bat files runnable
+#  by double-click in Thunar (via the .desktop associations we
+#  install alongside this script).
+#
+#  Supports:
+#    • Wine prefix management (per-app isolation)
+#    • Winetricks essentials pre-installed (d3dx9, vcrun, dotnet)
+#    • Right-click → "Run with Wine" in Thunar
+#    • Right-click → "Run Windows installer (.msi)"
+#    • Right-click → "Make Windows app launcher" (creates .desktop)
+# ============================================================
+set -euo pipefail
+
+WINE_DEFAULT="${HOME}/.wine-novatos"
+
+ensure_prefix() {
+    if [ ! -d "$WINE_DEFAULT" ]; then
+        echo "Initializing Wine prefix at $WINE_DEFAULT..."
+        WINEPREFIX="$WINE_DEFAULT" WINEARCH=win64 wineboot --init 2>/dev/null || true
+        # Install common redistributables
+        WINEPREFIX="$WINE_DEFAULT" winetricks -q \
+            d3dx9 d3dcompiler_47 vcrun2019 dotnet48 \
+            corefonts tahoma 2>/dev/null || true
+        WINEPREFIX="$WINE_DEFAULT" wineboot --update 2>/dev/null || true
+    fi
+}
+
+case "${1:-}" in
+    run)
+        shift
+        ensure_prefix
+        exec env WINEPREFIX="$WINE_DEFAULT" WINEARCH=win64 wine "$@"
+        ;;
+    msi)
+        shift
+        ensure_prefix
+        exec env WINEPREFIX="$WINE_DEFAULT" WINEARCH=win64 msiexec /i "$@"
+        ;;
+    cfg)
+        ensure_prefix
+        exec env WINEPREFIX="$WINE_DEFAULT" winecfg
+        ;;
+    uninstall)
+        ensure_prefix
+        exec env WINEPREFIX="$WINE_DEFAULT" wine uninstaller
+        ;;
+    make-launcher)
+        exe="$2"
+        name="$3"
+        ensure_prefix
+        desktop="${HOME}/.local/share/applications/${name// /_}.desktop"
+        cat > "$desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$name
+Exec=env WINEPREFIX="$WINE_DEFAULT" wine "$exe"
+Icon=wine
+Terminal=false
+Categories=Wine;Game;Utility;
+EOF
+        chmod +x "$desktop"
+        echo "Created launcher: $desktop"
+        ;;
+    *)
+        cat <<EOF
+NovatOS Windows-app compatibility (Wine wrapper)
+
+Usage:
+  novatos-windows-compat run <file.exe> [args...]   Run an .exe
+  novatos-windows-compat msi <file.msi>             Run a Windows installer
+  novatos-windows-compat cfg                        Open winecfg
+  novatos-windows-compat uninstall                  Open Wine uninstaller
+  novatos-windows-compat make-launcher <exe> <name> Make a start-menu launcher
+
+In the file manager, you can also right-click any .exe / .msi and
+choose "Run with Wine".
+EOF
+        ;;
+esac

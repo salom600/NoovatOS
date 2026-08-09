@@ -1,0 +1,19 @@
+# Build outputs
+work/
+out/
+*.iso
+*.img
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

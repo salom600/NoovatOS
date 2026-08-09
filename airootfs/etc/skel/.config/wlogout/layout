@@ -1,0 +1,34 @@
+{
+    "layout" : {
+        "column" : {
+            "width" : 220,
+            "rows" : [
+                {
+                    "command" : "systemctl poweroff",
+                    "label" : "Power off",
+                    "key" : "⏻"
+                },
+                {
+                    "command" : "systemctl reboot",
+                    "label" : "Restart",
+                    "key" : "🔁"
+                },
+                {
+                    "command" : "systemctl suspend",
+                    "label" : "Sleep",
+                    "key" : "🌙"
+                },
+                {
+                    "command" : "hyprlock",
+                    "label" : "Lock",
+                    "key" : "🔒"
+                },
+                {
+                    "command" : "loginctl terminate-user $USER",
+                    "label" : "Log out",
+                    "key" : "🚪"
+                }
+            ]
+        }
+    }
+}

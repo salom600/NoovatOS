@@ -1,0 +1,25 @@
+# NovatOS — wofi (Windows 11 start menu style)
+show=drun
+prompt=Start menu
+filter_rate=50
+allow_markup=true
+no_actions=true
+halign=fill
+orientation=vertical
+content_halign=fill
+hide_scroll=true
+width=520
+lines=10
+line_wrap=word
+image_size=32
+window_format={title}
+cache_file=/dev/null
+term=kitty
+normal_window=true
+key_expand=Tab
+key_exit=Escape
+hide_search=false
+parse_search=false
+matching=fuzzy
+insensitive=true
+prompt=Start menu

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS — GPU / driver auto-detection
+#  Runs at login (from hyprland.conf exec-once).
+#  Detects:
+#    - Intel GPU (2009+ GMA / HD / Iris / Arc)
+#    - AMD GPU (radeon / amdgpu — legacy + modern)
+#    - NVIDIA GPU (nouveau OSS, or proprietary if Vulkan-capable)
+#    - VirtualBox / VMware / QEMU virtual GPU
+#  Then writes environment vars to ~/.config/hypr/env.conf which
+#  Hyprland sources on next launch. For the current session it
+#  exports the same vars.
+# ============================================================
+set -u
+
+ENV_FILE="${HOME}/.config/hypr/env.conf"
+mkdir -p "$(dirname "$ENV_FILE")"
+
+log() { printf '[novatos-detect-gpu] %s\n' "$*" >&2; }
+
+detect_pci_gpu() {
+    local pci
+    pci="$(lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' || true)"
+    log "PCI devices:\n$pci"
+
+    if printf '%s' "$pci" | grep -qi 'virtualbox'; then
+        echo "vbox"; return
+    fi
+    if printf '%s' "$pci" | grep -qi 'vmware'; then
+        echo "vmware"; return
+    fi
+    if printf '%s' "$pci" | grep -qi 'qemu'; then
+        echo "qemu"; return
+    fi
+    if printf '%s' "$pci" | grep -qiE 'nvidia|geforce|quadro|tesla'; then
+        echo "nvidia"; return
+    fi
+    if printf '%s' "$pci" | grep -qiE 'advanced micro devices|amd|radeon'; then
+        echo "amd"; return
+    fi
+    if printf '%s' "$pci" | grep -qiE 'intel'; then
+        echo "intel"; return
+    fi
+    echo "unknown"
+}
+
+write_env() {
+    : > "$ENV_FILE"
+    for kv in "$@"; do
+        printf 'env = %s\n' "$kv" >> "$ENV_FILE"
+    done
+}
+
+gpu="$(detect_pci_gpu)"
+log "Detected GPU class: $gpu"
+
+case "$gpu" in
+    intel)
+        # Intel GMA 950/X3100 (2006-2009): i915 + swrast
+        # Intel HD/Iris/Arc (2010+): i915 + iris/anv
+        write_env \
+            "WLR_RENDERER=gles2" \
+            "LIBGL_ALWAYS_SOFTWARE=0" \
+            "MESA_LOADER_DRIVER_OVERRIDE=" \
+            "__GL_GSYNC_ALLOWED=0"
+        export WLR_RENDERER=gles2
+        ;;
+    amd)
+        # r600 (HD 2000-7000, 2007-2013): r600g
+        # amdgpu (HD 7000+ / GCN / RDNA, 2012+): radeonsi
+        write_env \
+            "WLR_RENDERER=gles2" \
+            "AMD_VULKAN_ICD=RADV" \
+            "RADV_PERFTEST=aco"
+        export WLR_RENDERER=gles2
+        export AMD_VULKAN_ICD=RADV
+        ;;
+    nvidia)
+        # Proprietary only works on Kepler+ (GTX 600, 2012+).
+        # Older (GeForce 6/7/8/9/200/400/500 — 2004-2012): nouveau OSS.
+        if lspci -nn | grep -qiE 'nvidia.*\[(?:0de[0-9a-f]|0f0[0-9a-f]|0fc[0-9a-f]|128[0-9a-f])' 2>/dev/null; then
+            log "Modern NVIDIA (Kepler+) — using nvidia proprietary"
+            write_env \
+                "WLR_NO_HARDWARE_CURSORS=1" \
+                "LIBGL_ALWAYS_SOFTWARE=0" \
+                "__GL_GSYNC_ALLOWED=1" \
+                "__GL_VRR_ALLOWED=1" \
+                "GBM_BACKEND=nvidia-drm" \
+                "__GLX_VENDOR_LIBRARY_NAME=nvidia"
+            export WLR_NO_HARDWARE_CURSORS=1
+            export GBM_BACKEND=nvidia-drm
+            export __GLX_VENDOR_LIBRARY_NAME=nvidia
+            # Enable nvidia-drm.modeset for Hyprland
+            if [ -w /sys/module/nvidia_drm/parameters/modeset ]; then
+                echo Y > /sys/module/nvidia_drm/parameters/modeset 2>/dev/null || true
+            fi
+        else
+            log "Legacy NVIDIA — using nouveau (OSS)"
+            write_env \
+                "WLR_RENDERER=gles2" \
+                "NOUVEAU_USE_ZINK=0"
+            export WLR_RENDERER=gles2
+        fi
+        ;;
+    vbox)
+        write_env \
+            "WLR_RENDERER=gles2" \
+            "WLR_NO_HARDWARE_CURSORS=1" \
+            "LIBGL_ALWAYS_SOFTWARE=0"
+        export WLR_RENDERER=gles2
+        export WLR_NO_HARDWARE_CURSORS=1
+        # Ensure VBox guest service is up
+        systemctl start virtualbox-guest-utils 2>/dev/null || true
+        ;;
+    vmware)
+        write_env \
+            "WLR_RENDERER=gles2" \
+            "WLR_NO_HARDWARE_CURSORS=1"
+        export WLR_RENDERER=gles2
+        export WLR_NO_HARDWARE_CURSORS=1
+        systemctl start vmtoolsd 2>/dev/null || true
+        ;;
+    qemu)
+        write_env \
+            "WLR_RENDERER=pixman" \
+            "LIBGL_ALWAYS_SOFTWARE=1"
+        export WLR_RENDERER=pixman
+        export LIBGL_ALWAYS_SOFTWARE=1
+        ;;
+    *)
+        # Unknown — fail soft to pixman software rendering so SOMETHING shows up.
+        log "Unknown GPU — falling back to software rendering"
+        write_env \
+            "WLR_RENDERER=pixman" \
+            "LIBGL_ALWAYS_SOFTWARE=1"
+        export WLR_RENDERER=pixman
+        export LIBGL_ALWAYS_SOFTWARE=1
+        ;;
+esac
+
+# Reload Hyprland env if it's already running
+if command -v hyprctl >/dev/null 2>&1 && hyprctl monitors >/dev/null 2>&1; then
+    log "Hyprland is running — env will take effect on next login"
+fi
+
+log "Done. Wrote $ENV_FILE"
+exit 0

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# NovatOS — Apply theme (icons, GTK, cursor, wallpaper)
+set -u
+
+# Set GTK theme
+mkdir -p "${HOME}/.config/gtk-3.0" "${HOME}/.config/gtk-4.0"
+cat > "${HOME}/.config/gtk-3.0/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Arc-Dark
+gtk-icon-theme-name=Papirus-Dark
+gtk-cursor-theme-name=breeze_cursors
+gtk-font-name=Roboto 11
+gtk-application-prefer-dark-theme=1
+gtk-toolbar-style=GTK_TOOLBAR_BOTH_HORIZ
+gtk-toolbar-icon-size=GTK_ICON_SIZE_LARGE_TOOLBAR
+gtk-button-images=1
+gtk-menu-images=1
+EOF
+
+cp "${HOME}/.config/gtk-3.0/settings.ini" "${HOME}/.config/gtk-4.0/settings.ini"
+
+# Qt
+mkdir -p "${HOME}/.config/qt5ct" "${HOME}/.config/qt6ct"
+cat > "${HOME}/.config/qt5ct/qt5ct.conf" <<'EOF'
+[Appearance]
+color_scheme_path=/usr/share/qt5ct/colors/airy.conf
+icon_theme=Papirus-Dark
+style=kvantum
+EOF
+cp "${HOME}/.config/qt5ct/qt5ct.conf" "${HOME}/.config/qt6ct/qt6ct.conf"
+
+# Kvantum
+mkdir -p "${HOME}/.config/Kvantum"
+ln -sf /usr/share/Kvantum/NovatOS-Dark "${HOME}/.config/Kvantum/NovatOS-Dark" 2>/dev/null || true
+
+# Hyprland cursor
+mkdir -p "${HOME}/.icons/default"
+cat > "${HOME}/.icons/default/index.theme" <<'EOF'
+[Icon Theme]
+Inherits=breeze_cursors
+EOF
+
+# Wallpaper
+mkdir -p "${HOME}/.config/hypr"
+cat > "${HOME}/.config/hypr/hyprpaper.conf" <<'EOF'
+preload = /usr/share/wallpapers/novatos/default.jpg
+wallpaper = ,/usr/share/wallpapers/novatos/default.jpg
+splash = false
+ipc = off
+EOF
+
+# Reload Hyprpaper if running
+if pidof hyprpaper >/dev/null 2>&1; then
+    hyprctl hyprpaper preload /usr/share/wallpapers/novatos/default.jpg 2>/dev/null || true
+    hyprctl hyprpaper wallpaper ",/usr/share/wallpapers/novatos/default.jpg" 2>/dev/null || true
+fi
+
+echo "Theme applied."

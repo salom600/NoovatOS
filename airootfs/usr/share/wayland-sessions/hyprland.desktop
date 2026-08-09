@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=NovatOS Hyprland
+Name[ar]=NovatOS هابرلاند
+Name[fr]=NovatOS Hyprland
+Name[es]=NovatOS Hyprland
+Comment=Modern, lightweight Wayland compositor — NovatOS default session
+Comment[ar]=مركب وايلاند حديث وخفيف — جلسة NovatOS الافتراضية
+Comment[fr]=Compositeur Wayland moderne et léger — session NovatOS par défaut
+Comment[es]=Compositor Wayland moderno y ligero — sesión NovatOS por defecto
+Exec=Hyprland
+Type=Application
+DesktopNames=Hyprland;Wayland;NovatOS
+X-GDM-SessionRegisters=true

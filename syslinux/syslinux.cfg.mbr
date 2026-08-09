@@ -1,0 +1,18 @@
+UI menu.c32
+MENU TITLE NovatOS Linux (MBR)
+PROMPT 0
+TIMEOUT 30
+
+DEFAULT arch
+
+LABEL arch
+    MENU LABEL NovatOS (x86_64, BIOS)
+    LINUX /novatos/boot/x86_64/vmlinuz-linux
+    INITRD /novatos/boot/intel-ucode.img,/novatos/boot/amd-ucode.img,/novatos/boot/x86_64/initramfs-linux.img
+    APPEND archisobasedir=novatos archisolabel=%ARCHISO_LABEL% cow_spacesize=4G quiet splash
+
+LABEL archfallback
+    MENU LABEL NovatOS (fallback, no splash)
+    LINUX /novatos/boot/x86_64/vmlinuz-linux
+    INITRD /novatos/boot/intel-ucode.img,/novatos/boot/amd-ucode.img,/novatos/boot/x86_64/initramfs-linux-fallback.img
+    APPEND archisobasedir=novatos archisolabel=%ARCHISO_LABEL% cow_spacesize=4G

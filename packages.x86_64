@@ -1,0 +1,416 @@
+##
+## NovatOS — packages.x86_64
+## Minimal Hyprland-based live ISO.
+## Design goal: idle RAM < 350 MB on 2009-era hardware (2 GB RAM minimum).
+## Heavy apps (Steam, LibreOffice, Lutris, etc.) are NOT shipped on the ISO —
+## users install them on demand through the bauh app store, which unifies
+## AUR + Flatpak + Snap + AppImage + Web Apps behind one GUI.
+##
+
+# === Base system (Arch base + 2009-era CPU friendliness) ===
+base
+base-devel
+linux
+linux-headers
+linux-lts
+linux-lts-headers
+linux-firmware
+linux-firmware-marvell
+mkinitcpio
+mkinitcpio-archiso
+squashfs-tools
+intel-ucode
+amd-ucode
+haveged
+
+# === Filesystem support (every common FS) ===
+btrfs-progs
+dosfstools
+e2fsprogs
+exfatprogs
+f2fs-tools
+ntfs-3g
+xfsprogs
+nilfs-utils
+udisks2
+
+# === Bootloader / installer ===
+grub
+efibootmgr
+systemd-boot
+os-prober
+memtest86+
+calamares
+calamares-extensions
+
+# === Networking ===
+networkmanager
+modemmanager
+mobile-broadband-provider-info
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+nm-connection-editor
+network-manager-applet
+openssh
+openvpn
+wireguard-tools
+iwd
+bluez
+bluez-utils
+blueman
+bolt
+usb_modeswitch
+
+# === Audio (Pipewire — modern, light) ===
+pipewire
+pipewire-alsa
+pipewire-jack
+pipewire-pulse
+pipewire-audio
+wireplumber
+sof-firmware
+alsa-firmware
+alsa-utils
+alsa-plugins
+pavucontrol
+
+# === Wayland core ===
+wayland
+wayland-protocols
+xorg-xwayland
+xorg-server-xwayland
+xdg-desktop-portal
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xdg-utils
+xdg-user-dirs
+seatd
+polkit
+polkit-qt6
+accountsservice
+
+# === Hyprland (PRIMARY desktop — modern, ultra-light Wayland compositor) ===
+hyprland
+hyprcursor
+hypridle
+hyprlock
+hyprpaper
+hyprlang
+hyprutils
+hyprwayland-scanner
+aquamarine
+
+# === Sway (FALLBACK compositor for older GPUs that can't run Hyprland) ===
+sway
+swayidle
+swaylock
+swaybg
+wlroots
+
+# === Wayland UI helpers ===
+waybar
+wofi
+kitty
+foot
+wl-clipboard
+slurp
+grim
+swappy
+nwg-look
+qt5-wayland
+qt6-wayland
+brightnessctl
+wlogout
+cliphist
+clipman
+pavucontrol
+playerctl
+yad
+zenity
+dunst
+libnotify
+notify-osd
+xdg-desktop-portal-hyprland
+
+# === Display manager ===
+sddm
+sddm-theme-breeze
+
+# === Plymouth boot splash ===
+plymouth
+plymouth-theme-spinner
+
+# === X11 fallback drivers (for ancient GPUs / VM console) ===
+xorg-server
+xorg-xinit
+xorg-setxkbmap
+xorg-xrandr
+xorg-xinput
+xorg-xbacklight
+
+# === Fonts (minimal but complete coverage) ===
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+ttf-dejavu
+ttf-liberation
+gnu-free-fonts
+ttf-hack
+ttf-fira-code
+ttf-roboto
+cantarell-fonts
+
+# === Themes / icons / cursor ===
+breeze-icons
+papirus-icon-theme
+papirus-folders
+hicolor-icon-theme
+gnome-themes-extra
+arc-gtk-theme
+kvantum
+qt5ct
+qt6ct
+qt5-svg
+qt6-svg
+xcursor-dmz
+breeze-cursor-theme
+
+# === Web browser (only one) ===
+firefox
+firefox-i18n-en-us
+firefox-i18n-ar
+firefox-i18n-fr
+firefox-i18n-es
+firefox-i18n-de
+firefox-i18n-pt-br
+firefox-i18n-ru
+firefox-i18n-zh-cn
+firefox-ublock-origin
+
+# === File manager + archive + image viewer (Windows-like, minimal) ===
+thunar
+thunar-archive-plugin
+thunar-volman
+tumbler
+file-roller
+engrampa
+ristretto
+mousepad
+galculator
+
+# === App store: bauh (unified AUR + Flatpak + Snap + AppImage + Web Apps) ===
+bauh
+flatpak
+snapd
+appimage-launcher
+yay
+paru
+pacman-contrib
+pkgfile
+reflector
+
+# === GPU drivers — ALL of them, auto-selected at boot ===
+mesa
+lib32-mesa
+vulkan-mesa-layers
+lib32-vulkan-mesa-layers
+vulkan-radeon
+lib32-vulkan-radeon
+vulkan-intel
+lib32-vulkan-intel
+vulkan-swrast
+lib32-vulkan-swrast
+vulkan-tools
+mesa-vdpau
+libva-mesa-driver
+libva-intel-driver
+intel-media-driver
+libva
+libva-utils
+vdpauinfo
+glxinfo
+mesa-demos
+
+# X11 legacy drivers (Intel GMA 950/X3100, ATI radeon, etc.)
+xf86-video-amdgpu
+xf86-video-ati
+xf86-video-intel
+xf86-video-nouveau
+xf86-video-vesa
+xf86-video-fbdev
+xf86-video-vmware
+xf86-input-libinput
+xf86-input-evdev
+libinput
+
+# NVIDIA — installed but only enabled if hardware detected
+nvidia-dkms
+nvidia-utils
+nvidia-settings
+lib32-nvidia-utils
+nvidia-prime
+optimus-manager
+primus
+lib32-primus
+
+# AMD-specific (legacy + modern)
+libdrm
+libdrm-amdgpu
+libdrm-radeon
+libdrm-intel
+libdrm-nouveau
+lib32-libdrm
+
+# === Input / laptop / power ===
+libwacom
+xf86-input-wacom
+acpid
+acpi
+tlp
+tlp-rdw
+thermald
+upower
+cpupower
+irqbalance
+
+# === File system helpers (Windows-share, MTP, etc.) ===
+gvfs
+gvfs-mtp
+gvfs-gphoto2
+gvfs-afc
+gvfs-smb
+gvfs-nfs
+gvfs-goa
+gvfs-dnssd
+smbclient
+cifs-utils
+sshfs
+fuse2
+fuse3
+fuseiso
+
+# === Archivers ===
+p7zip
+unrar
+unzip
+zip
+lz4
+xz
+zstd
+bzip2
+gzip
+
+# === CLI utilities (minimal set) ===
+bash
+bash-completion
+zsh
+fish
+neovim
+nano
+bat
+exa
+fd
+ripgrep
+htop
+btop
+tmux
+tree
+git
+wget
+curl
+rsync
+man-db
+man-pages
+texinfo
+which
+file
+lsof
+pciutils
+usbutils
+dmidecode
+inxi
+fastfetch
+hwinfo
+smartmontools
+hdparm
+pciutils
+usbutils
+cryptsetup
+ecryptfs-utils
+fscrypt
+
+# === Disk / partition tools ===
+gparted
+gnome-disk-utility
+smartmontools
+testdisk
+parted
+
+# === Wine stub (full wine is installed via store on demand) ===
+wine
+winetricks
+
+# === VirtualBox guest additions (live testing in VBox) ===
+virtualbox-guest-utils
+virtualbox-guest-modules-arch
+
+# === VMware guest tools ===
+open-vm-tools
+open-vm-tools-desktop
+xf86-video-vmware
+
+# === Security ===
+ufw
+gufw
+apparmor
+apparmor-utils
+gnome-keyring
+libsecret
+seahorse
+kwallet
+kwalletmanager
+polkit-gnome
+
+# === Time / locale / i18n ===
+tzdata
+chrony
+geoclue
+iio-sensor-proxy
+
+# === Printing (lightweight) ===
+cups
+cups-pdf
+system-config-printer
+avahi
+nss-mdns
+
+# === Multimedia codecs (for browser playback) ===
+ffmpeg
+gst-plugins-base
+gst-plugins-good
+gst-plugins-bad
+gst-plugins-ugly
+gst-libav
+mpv
+
+# === Live environment helpers (archiso required) ===
+arch-install-scripts
+archiso
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+nfs-utils
+nbd
+darkhttpd
+irssi
+lftp
+mc
+parted
+socat
+sshpass
+vpnkit
+
+# === Initramfs tooling ===
+mkinitcpio
+mkinitcpio-archiso
+busybox

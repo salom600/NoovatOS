@@ -1,0 +1,188 @@
+/* ============================================================
+   NovatOS Waybar — Windows 11 taskbar-inspired styling
+   ============================================================ */
+
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "Roboto", "Noto Sans", "Cantarell", "Segoe UI", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: rgba(20, 20, 32, 0.85);
+    color: #ffffff;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+}
+
+window#waybar.hidden {
+    opacity: 0.2;
+}
+
+#workspaces {
+    background: transparent;
+    margin: 0 4px;
+    padding: 0;
+}
+
+#workspaces button {
+    color: #cdd6f4;
+    background: transparent;
+    padding: 0 12px;
+    border-radius: 6px;
+    margin: 4px 2px;
+    transition: all 0.2s ease;
+}
+
+#workspaces button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+#workspaces button.active {
+    color: #ffffff;
+    background: linear-gradient(180deg, rgba(0,103,192,0.6) 0%, rgba(0,103,192,0.4) 100%);
+    box-shadow: inset 0 -2px 0 #4cc2ff;
+}
+
+#window {
+    color: #cdd6f4;
+    background: transparent;
+    padding: 0 16px;
+    margin: 4px 0;
+}
+
+#taskbar {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+}
+
+#taskbar button {
+    color: #cdd6f4;
+    background: transparent;
+    padding: 0 10px;
+    margin: 4px 2px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#taskbar button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#taskbar button.active {
+    background: rgba(0, 103, 192, 0.35);
+    box-shadow: inset 0 -2px 0 #4cc2ff;
+}
+
+#custom-start {
+    color: #4cc2ff;
+    background: transparent;
+    font-size: 22px;
+    padding: 0 16px;
+    margin: 0 4px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#custom-start:hover {
+    background: rgba(76, 194, 255, 0.15);
+    color: #ffffff;
+}
+
+#custom-store, #custom-clipboard {
+    color: #cdd6f4;
+    background: transparent;
+    font-size: 16px;
+    padding: 0 12px;
+    margin: 4px 2px;
+    border-radius: 6px;
+}
+
+#custom-store:hover, #custom-clipboard:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#pulseaudio, #bluetooth, #network, #backlight, #battery {
+    color: #cdd6f4;
+    background: transparent;
+    padding: 0 12px;
+    margin: 4px 2px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#pulseaudio:hover, #bluetooth:hover, #network:hover, #backlight:hover, #battery:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#battery.warning {
+    color: #f9e2af;
+}
+
+#battery.critical {
+    color: #f38ba8;
+    animation: blink 1s steps(2) infinite;
+}
+
+#battery.charging {
+    color: #a6e3a1;
+}
+
+@keyframes blink {
+    to { background-color: rgba(243, 139, 168, 0.3); }
+}
+
+#clock {
+    color: #cdd6f4;
+    background: transparent;
+    padding: 0 16px;
+    margin: 4px 2px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#clock:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#custom-power {
+    color: #f38ba8;
+    background: transparent;
+    font-size: 16px;
+    padding: 0 14px;
+    margin: 4px 2px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#custom-power:hover {
+    background: rgba(243, 139, 168, 0.2);
+}
+
+#tray {
+    background: transparent;
+    padding: 0 8px;
+    margin: 4px 2px;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+}
+
+tooltip {
+    background: rgba(32, 32, 48, 0.95);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    padding: 8px 12px;
+    font-size: 13px;
+}

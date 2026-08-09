@@ -1,0 +1,22 @@
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.udisks2.filesystem-mount-system" &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+    if (action.id == "org.freedesktop.udisks2.filesystem-mount-other-seat" &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+    if (action.id.startsWith("org.freedesktop.NetworkManager.") &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+    if (action.id == "com.github.calamares.calamares.pkexec" &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+    if (action.id == "org.archlinux.pkexec.novatos-setup-drivers" &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

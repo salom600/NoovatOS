@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS First-Boot
+#  Runs once on the first boot of the live ISO (and again
+#  after install, once, on the installed system).
+#  Does:
+#    • Sets up pacman mirrors (reflector)
+#    • Initializes pacman keyring
+#    • Populates bauh / flatpak remotes (async, in background)
+#    • Detects GPU + writes env.conf
+#    • Sets default wallpaper
+#    • Touches a flag file so it never runs again
+# ============================================================
+set -u
+
+FLAG="/var/lib/novatos/first-boot-done"
+mkdir -p /var/lib/novatos
+if [ -f "$FLAG" ]; then exit 0; fi
+
+log() { printf '[novatos-first-boot] %s\n' "$*" >&2; }
+
+# 1) Initialize pacman keyring (live ISO)
+if command -v pacman-key >/dev/null 2>&1; then
+    if [ ! -d /etc/pacman.d/gnupg ] || [ ! -f /etc/pacman.d/gnupg/pubring.gpg ]; then
+        log "Initializing pacman keyring..."
+        pacman-key --init 2>&1 | tail -3 || true
+        pacman-key --populate archlinux 2>&1 | tail -3 || true
+        # Chaotic-AUR key
+        pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com 2>/dev/null || true
+        pacman-key --lsign-key 3056513887B78AEB 2>/dev/null || true
+    fi
+fi
+
+# 2) Generate pacman mirrorlist (best 20, sort by rate)
+if command -v reflector >/dev/null 2>&1 && [ ! -s /etc/pacman.d/mirrorlist ] || \
+   ! grep -q 'Server' /etc/pacman.d/mirrorlist 2>/dev/null; then
+    log "Generating mirrorlist..."
+    reflector --latest 50 --protocol https --sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null \
+        || curl -s 'https://archlinux.org/mirrorlist/?country=all&protocol=https&use_mirror_status=on' \
+           | sed 's/^#Server/Server/' > /etc/pacman.d/mirrorlist 2>/dev/null || true
+fi
+
+# 3) GPU detection (writes ~/.config/hypr/env.conf for each user with UID >= 1000)
+for user_home in /home/*; do
+    [ -d "$user_home" ] || continue
+    user="$(stat -c %U "$user_home" 2>/dev/null || echo '')"
+    [ -z "$user" ] && continue
+    sudo -u "$user" /etc/novatos/scripts/detect-gpu 2>/dev/null || true
+done
+
+# 4) Background: set up app store (don't block boot)
+( nohup /etc/novatos/scripts/setup-flatpak-remotes >/var/log/novatos-store.log 2>&1 & ) 2>/dev/null || true
+
+# 5) Background: sync pacman db for the welcome app
+( pacman -Sy 2>/dev/null || true ) &
+
+# 6) Default wallpaper (symlink if missing)
+if [ ! -e /usr/share/wallpapers/novatos/default.jpg ]; then
+    mkdir -p /usr/share/wallpapers/novatos
+    ln -sf /usr/share/backgrounds/xfce/backdrops/novatos-default.jpg /usr/share/wallpapers/novatos/default.jpg 2>/dev/null || true
+fi
+
+# 7) Enable services
+systemctl enable --now NetworkManager 2>/dev/null || true
+systemctl enable --now bluetooth 2>/dev/null || true
+systemctl enable --now cups 2>/dev/null || true
+systemctl enable --now apparmor 2>/dev/null || true
+systemctl enable --now systemd-timesyncd 2>/dev/null || true
+
+# 8) Mark done
+touch "$FLAG"
+log "First-boot done."
+exit 0

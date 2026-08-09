@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# NovatOS Launcher — central command center (Win+L or Win+C)
+# Opens a wofi menu with the most common NovatOS actions.
+choice="$(wofi --show dmenu --prompt 'NovatOS Launcher' --cache-file /dev/null <<'EOF'
+🛠 Install drivers
+🎮 Install gaming stack
+🛍 Open App Store
+🌐 Open browser
+📁 Open file manager
+⌨ Open terminal
+🍷 Configure Wine
+🔄 Migrate from Windows
+📖 Quick start guide
+⚙ System settings
+🔧 Calamares installer
+EOF
+)"
+
+case "$choice" in
+    *drivers*)        novatos-setup-drivers & ;;
+    *gaming*)         novatos-setup-gaming & ;;
+    *App Store*)      bauh & ;;
+    *browser*)        firefox & ;;
+    *file manager*)   thunar & ;;
+    *terminal*)       kitty & ;;
+    *Wine*)           novatos-windows-compat cfg & ;;
+    *Migrate*)        novatos-migrate-from-windows & ;;
+    *Quick start*)    novatos-welcome & ;;
+    *System*)         hyprctl dispatch exec 'kitty -e btop' & ;;
+    *Calamares*)      calamares & ;;
+    *) exit 0 ;;
+esac

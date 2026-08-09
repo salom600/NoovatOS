@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS — Migrate from Windows
+#  Helps Windows 11 migrants move their data over:
+#    • Mount Windows partition (read-only if NTFS)
+#    • Import: Documents, Downloads, Pictures, Music, Desktop
+#    • Import browser: Firefox / Chrome / Edge bookmarks + passwords
+#    • Import Steam library (re-uses the Steam install)
+#  All via GUI (yad/zenity).
+# ============================================================
+set -u
+
+GUI=""
+if command -v yad >/dev/null 2>&1; then GUI=yad
+elif command -v zenity >/dev/null 2>&1; then GUI=zenity
+else
+    echo "yad or zenity required."; exit 1
+fi
+
+# Step 1: detect Windows partitions
+mapfile -t WIN_PARTS < <(lsblk -lnpo NAME,FSTYPE,SIZE,MOUNTPOINT,LABEL 2>/dev/null \
+    | awk '$2 ~ /ntfs|vfat|exfat/ && $4 == "" {print $1"|"$5"|"$3}')
+
+if [ "${#WIN_PARTS[@]}" -eq 0 ]; then
+    case "$GUI" in
+        yad)     yad --info --title="No Windows partitions found" --text="No mounted Windows partitions were detected.\n\nIf your Windows disk is connected, make sure it is mounted and try again." --width=400 ;;
+        zenity)  zenity --info --title="No Windows partitions found" --text="No mounted Windows partitions detected." ;;
+    esac
+    exit 0
+fi
+
+# Build list
+list_args=()
+for line in "${WIN_PARTS[@]}"; do
+    IFS='|' read -r dev label size <<<"$line"
+    list_args+=("$dev" "${label:-Windows}" "$size")
+done
+
+# Pick partition
+case "$GUI" in
+    yad)
+        win_dev="$(yad --list --title="Select Windows partition" \
+            --text="Choose the Windows partition to migrate from:" \
+            --width=600 --height=300 --center \
+            --column="Device" --column="Label" --column="Size" \
+            --print-column=1 --separator='' "${list_args[@]}")"
+        ;;
+    zenity)
+        win_dev="$(zenity --list --title="Select Windows partition" \
+            --text="Choose the Windows partition to migrate from:" \
+            --width=600 --height=300 \
+            --column="Device" --column="Label" --column="Size" \
+            --print-column=1 "${list_args[@]}")"
+        ;;
+esac
+
+[ -z "$win_dev" ] && exit 0
+
+# Mount it
+mnt="/run/media/novatos-windows"
+mkdir -p "$mnt"
+mount -t ntfs-3g -o ro "$win_dev" "$mnt" 2>/dev/null || mount -o ro "$win_dev" "$mnt" 2>/dev/null || {
+    notify-send "NovatOS Migrate" "Failed to mount $win_dev" 2>/dev/null || true
+    exit 1
+}
+
+# Find Windows user
+WIN_USERS_DIR="$mnt/Users"
+[ -d "$mnt/Documents and Settings" ] && WIN_USERS_DIR="$mnt/Documents and Settings"
+
+users=()
+while IFS= read -r u; do
+    [ "$u" = "All Users" ] && continue
+    [ "$u" = "Public" ] && continue
+    [ "$u" = "Default" ] && continue
+    [ "$u" = "Default User" ] && continue
+    [ "$u" = "desktop.ini" ] && continue
+    users+=("$u")
+done < <(ls -1 "$WIN_USERS_DIR" 2>/dev/null)
+
+if [ "${#users[@]}" -eq 0 ]; then
+    notify-send "NovatOS Migrate" "No Windows user profiles found" 2>/dev/null || true
+    exit 1
+fi
+
+case "$GUI" in
+    yad)     win_user="$(yad --list --title="Select Windows user" --text="Which Windows user to migrate?" --width=400 --height=300 --center --column="User" --print-column=1 --separator='' "${users[@]}")" ;;
+    zenity)  win_user="$(zenity --list --title="Select Windows user" --text="Which Windows user to migrate?" --width=400 --height=300 --column="User" "${users[@]}")" ;;
+esac
+
+[ -z "$win_user" ] && exit 0
+WIN_HOME="$WIN_USERS_DIR/$win_user"
+LINUX_HOME="$HOME"
+
+# What to migrate?
+case "$GUI" in
+    yad)
+        choices="$(yad --list --checklist --title="What to migrate?" \
+            --text="Select what to copy from $win_user:" \
+            --width=400 --height=400 --center \
+            --column="Pick" --column="Item" --print-column=2 --separator=' ' \
+            TRUE "Documents" TRUE "Downloads" TRUE "Pictures" TRUE "Music" TRUE "Desktop" TRUE "Firefox bookmarks" TRUE "Chrome bookmarks" TRUE "Steam library")"
+        ;;
+    zenity)
+        choices="$(zenity --list --checklist --title="What to migrate?" \
+            --text="Select what to copy from $win_user:" \
+            --width=400 --height=400 \
+            --column="Pick" --column="Item" \
+            TRUE "Documents" TRUE "Downloads" TRUE "Pictures" TRUE "Music" TRUE "Desktop" TRUE "Firefox bookmarks" TRUE "Chrome bookmarks" TRUE "Steam library")"
+        ;;
+esac
+
+[ -z "$choices" ] && exit 0
+
+# Do the copy
+copy_dir() {
+    local src="$1" dst="$2"
+    [ -d "$src" ] || return 0
+    mkdir -p "$dst"
+    rsync -a --info=progress2 "$src/" "$dst/" 2>&1
+}
+
+for item in $choices; do
+    case "$item" in
+        Documents)   copy_dir "$WIN_HOME/Documents"   "$LINUX_HOME/Documents" ;;
+        Downloads)   copy_dir "$WIN_HOME/Downloads"   "$LINUX_HOME/Downloads" ;;
+        Pictures)    copy_dir "$WIN_HOME/Pictures"    "$LINUX_HOME/Pictures" ;;
+        Music)       copy_dir "$WIN_HOME/Music"       "$LINUX_HOME/Music" ;;
+        Desktop)     copy_dir "$WIN_HOME/Desktop"     "$LINUX_HOME/Desktop" ;;
+        "Firefox bookmarks")
+            if [ -d "$WIN_HOME/AppData/Roaming/Mozilla/Firefox" ]; then
+                mkdir -p "$LINUX_HOME/.mozilla/firefox"
+                rsync -a "$WIN_HOME/AppData/Roaming/Mozilla/Firefox/" "$LINUX_HOME/.mozilla/firefox/"
+            fi
+            ;;
+        "Chrome bookmarks")
+            if [ -d "$WIN_HOME/AppData/Local/Google/Chrome/User Data/Default" ]; then
+                mkdir -p "$LINUX_HOME/.config/google-chrome/Default"
+                rsync -a "$WIN_HOME/AppData/Local/Google/Chrome/User Data/Default/" "$LINUX_HOME/.config/google-chrome/Default/"
+            fi
+            ;;
+        "Steam library")
+            if [ -d "$mnt/Program Files (x86)/Steam/steamapps/common" ]; then
+                mkdir -p "$LINUX_HOME/.local/share/Steam/steamapps/common"
+                rsync -a --info=progress2 "$mnt/Program Files (x86)/Steam/steamapps/common/" "$LINUX_HOME/.local/share/Steam/steamapps/common/"
+            fi
+            ;;
+    esac
+done
+
+umount "$mnt" 2>/dev/null || true
+
+case "$GUI" in
+    yad)    yad --info --title="Migration complete" --text="Selected items have been copied to your home directory." --width=400 ;;
+    zenity) zenity --info --title="Migration complete" --text="Selected items copied to your home directory." ;;
+esac

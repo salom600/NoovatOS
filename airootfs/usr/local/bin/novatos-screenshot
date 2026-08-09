@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# NovatOS Screenshot — full screen by default, region with --region
+out="${HOME}/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"
+mkdir -p "$(dirname "$out")"
+
+if [ "${1:-}" = "--region" ]; then
+    grim -g "$(slurp)" "$out" || exit 1
+else
+    grim "$out" || exit 1
+fi
+
+# Copy to clipboard
+wl-copy < "$out" 2>/dev/null || true
+
+notify-send "Screenshot saved" "$out" --icon=camera 2>/dev/null || true

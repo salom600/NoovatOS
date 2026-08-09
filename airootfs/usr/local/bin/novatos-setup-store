@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# NovatOS — Setup App Store (user-facing wrapper)
+exec /etc/novatos/scripts/setup-flatpak-remotes "$@"

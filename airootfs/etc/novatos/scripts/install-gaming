@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# ============================================================
+#  NovatOS Setup — Gaming stack (installs on demand)
+#  NOT part of the base ISO. Invoked from the Welcome app or
+#  the bauh store when the user picks "Install Gaming Stack".
+#  Pulls: Steam, Proton-GE, Wine-Staging, Lutris, Heroic,
+#  gamemode, gamescope, mangohud, plus 32-bit Vulkan drivers.
+# ============================================================
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v pkexec >/dev/null; then exec pkexec "$0" "$@"
+    elif command -v sudo >/dev/null; then exec sudo "$0" "$@"
+    else echo "Run as root."; exit 1; fi
+fi
+
+# Enable multilib (needed for Steam + 32-bit games)
+if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
+    cat >> /etc/pacman.conf <<'EOF'
+
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+EOF
+fi
+
+# Detect GPU for correct 32-bit Vulkan
+gpu="$(lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' || echo '')"
+
+pkgs=(
+    steam
+    lutris
+    wine
+    wine-staging
+    wine-gecko
+    wine-mono
+    winetricks
+    gamemode
+    lib32-gamemode
+    gamescope
+    mangohud
+    lib32-mangohud
+    protonup-qt
+    proton-ge-custom
+    heroic-games-launcher-bin
+    retroarch
+    pcsx2
+    dolphin-emu
+    ppsspp
+    lib32-mesa
+    lib32-vulkan-mesa-layers
+)
+
+if printf '%s' "$gpu" | grep -qiE 'nvidia'; then
+    pkgs+=(lib32-nvidia-utils nvidia-utils)
+elif printf '%s' "$gpu" | grep -qiE 'amd|radeon'; then
+    pkgs+=(lib32-vulkan-radeon lib32-vulkan-mesa-layers)
+elif printf '%s' "$gpu" | grep -qiE 'intel'; then
+    pkgs+=(lib32-vulkan-intel lib32-vulkan-mesa-layers)
+fi
+
+# Use yay to install AUR packages (proton-ge-custom, heroic-games-launcher-bin)
+if ! command -v yay >/dev/null 2>&1; then
+    pacman -S --noconfirm --needed yay
+fi
+
+echo "Installing gaming stack: ${pkgs[*]}"
+# Split pacman vs AUR
+pacman_pkgs=()
+aur_pkgs=()
+for p in "${pkgs[@]}"; do
+    case "$p" in
+        proton-ge-custom|heroic-games-launcher-bin|protonup-qt) aur_pkgs+=("$p");;
+        *) pacman_pkgs+=("$p");;
+    esac
+done
+
+[ "${#pacman_pkgs[@]}" -gt 0 ] && pacman -Syu --noconfirm --needed "${pacman_pkgs[@]}" || true
+
+# AUR install (as regular user, not root)
+if [ "${#aur_pkgs[@]}" -gt 0 ]; then
+    regular_user="$(getent passwd 1000 | cut -d: -f1)"
+    if [ -n "$regular_user" ]; then
+        sudo -u "$regular_user" yay -S --noconfirm --needed "${aur_pkgs[@]}" || true
+    fi
+fi
+
+# Pre-configure Steam Proton for the regular user
+regular_user="$(getent passwd 1000 | cut -d: -f1)"
+if [ -n "$regular_user" ]; then
+    home="/home/$regular_user"
+    mkdir -p "$home/.steam/root/compatibilitytools.d"
+    chown -R "$regular_user:$regular_user" "$home/.steam" 2>/dev/null || true
+
+    # Enable Steam Play (Proton) for all titles by default
+    mkdir -p "$home/.steam/root/config"
+    cat > "$home/.steam/root/config/config.vdf" <<'EOF'
+"configinstall"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"        "proton_ge"
+                        "config"      ""
+                        "priority"    "250"
+                    }
+                }
+            }
+        }
+    }
+}
+EOF
+    chown -R "$regular_user:$regular_user" "$home/.steam/root/config" 2>/dev/null || true
+fi
+
+# Enable gamemode for the user session
+systemctl enable --now gamemoded 2>/dev/null || true
+
+echo
+echo "✓ Gaming stack installed."
+echo "  • Steam: launch from the app menu"
+echo "  • Proton-GE: install via protonup-qt"
+echo "  • Lutris: auto-configured for Epic / GOG / Battle.net"
+echo "  • Windows .exe files: right-click → 'Run with Wine'"

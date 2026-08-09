@@ -1,0 +1,11 @@
+NAME="NovatOS"
+ID=novatos
+ID_LIKE=arch
+VERSION_ID=2026.08
+PRETTY_NAME="NovatOS 2026.08 (Wayland Edition)"
+ANSI_COLOR="0;34"
+HOME_URL="https://github.com/salom600/NoovatOS"
+DOCUMENTATION_URL="https://github.com/salom600/NoovatOS/wiki"
+SUPPORT_URL="https://github.com/salom600/NoovatOS/issues"
+BUG_REPORT_URL="https://github.com/salom600/NoovatOS/issues"
+LOGO=novatos

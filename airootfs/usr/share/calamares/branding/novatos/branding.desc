@@ -1,0 +1,32 @@
+[Branding]
+componentName: novatos
+
+# Path to slideshow (no slideshow — keep installer light)
+slideshow: ""
+slideshowAPI: 1
+
+# Welcome image (logo)
+welcomeImage: branding/novatos/logo.png
+welcomeStyle: stretched
+
+# Product image (shown in summary)
+productImage: branding/novatos/logo.png
+productText: "NovatOS 2026.08"
+
+# Wallpaper shown behind installer (transparent panel)
+wallpaper: branding/novatos/wallpaper.png
+
+# Images shown at install steps
+stringImage: branding/novatos/logo.png
+
+# Languages supported
+languages:
+  - en_US
+  - en_GB
+  - ar
+  - fr
+  - es
+  - de
+  - pt_BR
+  - ru
+  - zh_CN

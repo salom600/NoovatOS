@@ -1,0 +1,240 @@
+# ============================================================
+#  NovatOS — CI/CD Build Pipeline
+#  Builds the bootable hybrid ISO on every push, uploads the
+#  ISO + checksums as a GitHub Actions artifact and (on main
+#  push) creates a rolling GitHub Release.
+# ============================================================
+name: Build NovatOS ISO
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Cancel in-progress builds on the same ref
+concurrency:
+  group: novatos-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-iso:
+    name: Build NovatOS ISO (x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up build environment
+        run: |
+          set -eu
+          echo "BUILD_DATE=$(date +%Y.%m.%d)" >> $GITHUB_ENV
+          echo "BUILD_TAG=$(date +%Y%m%d-%H%M)" >> $GITHUB_ENV
+          df -h
+
+      - name: Free up disk space
+        run: |
+          set -eu
+          # Free ~30 GB on the runner
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/.ghcup /usr/local/share/boost /usr/local/share/powershell \
+                      /usr/local/share/chromium /usr/share/swift /opt/hostedtoolcache 2>/dev/null || true
+          sudo apt-get -qq remove -y '^dotnet-.*' '^ghc-.*' '^llvm-.*' 'php.*' 'ruby.*' \
+                                    'aspnetcore-*' azure-cli google-chrome-stable \
+                                    microsoft-edge-stable firefox 2>/dev/null || true
+          sudo apt-get -qq autoremove -y 2>/dev/null || true
+          sudo apt-get -qq clean 2>/dev/null || true
+          docker system prune -af 2>/dev/null || true
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build NovatOS ISO inside archlinux container
+        id: build
+        run: |
+          set -eu
+          mkdir -p work out
+
+          docker run --rm \
+            --privileged \
+            --cap-add SYS_ADMIN \
+            -v "$PWD":/novatos \
+            -v "$PWD/work":/work \
+            -v "$PWD/out":/out \
+            -w /novatos \
+            -e BUILD_DATE="${BUILD_DATE}" \
+            -e BUILD_TAG="${BUILD_TAG}" \
+            archlinux:latest \
+            bash -eux -c '
+              # 1) Update container
+              pacman -Syu --noconfirm
+
+              # 2) Install archiso + build deps
+              pacman -S --noconfirm --needed \
+                archiso mkinitcpio squashfs-tools mtools dosfstools \
+                grub efibootmgr systemd-boot edk2-ovmf edk2-shell \
+                xorriso parted curl wget rsync git bash python jq \
+                pacman-contrib reflector imagemagick
+
+              # 3) Init pacman keyring
+              pacman-key --init
+              pacman-key --populate archlinux
+
+              # 4) Add chaotic-aur key + repo (needed for some gaming packages)
+              #    This is non-fatal — if it fails, archiso still builds with just the
+              #    standard repos (some AUR-only packages may be skipped).
+              pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com 2>/dev/null || \
+                pacman-key --recv-key 3056513887B78AEB --keyserver hkp://pool.sks-keyservers.net 2>/dev/null || \
+                echo "WARN: Could not import chaotic-aur key — continuing without it"
+              pacman-key --lsign-key 3056513887B78AEB 2>/dev/null || true
+
+              # Pre-fetch the chaotic-aur db (so package resolution works at build time)
+              pacman -Sy 2>/dev/null || true
+
+              # 5) Generate mirrorlist
+              reflector --latest 50 --protocol https --sort rate --save /etc/pacman.d/mirrorlist || \
+                curl -s "https://archlinux.org/mirrorlist/?country=all&protocol=https&use_mirror_status=on" \
+                  | sed "s/^#Server/Server/" > /etc/pacman.d/mirrorlist
+
+              # 6) Sanity check
+              cat /etc/pacman.d/mirrorlist | head -5
+
+              # 7) Generate NovatOS wallpaper + Plymouth logo if missing
+              mkdir -p airootfs/usr/share/wallpapers/novatos
+              mkdir -p airootfs/usr/share/plymouth/themes/novatos
+
+              # Generate wallpaper (1920x1080 gradient with NovatOS wordmark)
+              if [ ! -f airootfs/usr/share/wallpapers/novatos/default.jpg ]; then
+                convert -size 1920x1080 \
+                  gradient:"#0067c0"-"#0a1f3c" \
+                  -font DejaVu-Sans-Bold -pointsize 96 -fill white -gravity north \
+                  -annotate +0+80 "NovatOS" \
+                  -pointsize 32 -fill "#4cc2ff" \
+                  -annotate +0+200 "The lightest, newest, most powerful Linux" \
+                  airootfs/usr/share/wallpapers/novatos/default.jpg
+              fi
+
+              if [ ! -f airootfs/usr/share/wallpapers/novatos/solid-blue.png ]; then
+                convert -size 1920x1080 xc:"#0a1f3c" \
+                  airootfs/usr/share/wallpapers/novatos/solid-blue.png
+              fi
+
+              # Generate Plymouth background + logo (transparent PNGs)
+              if [ ! -f airootfs/usr/share/plymouth/themes/novatos/background.png ]; then
+                convert -size 1920x1080 xc:"#0a1f3c" \
+                  airootfs/usr/share/plymouth/themes/novatos/background.png
+              fi
+              if [ ! -f airootfs/usr/share/plymouth/themes/novatos/logo.png ]; then
+                convert -size 800x200 xc:none -font DejaVu-Sans-Bold -pointsize 96 \
+                  -fill white -gravity center -annotate +0+0 "NovatOS" \
+                  airootfs/usr/share/plymouth/themes/novatos/logo.png
+              fi
+              if [ ! -f airootfs/usr/share/plymouth/themes/novatos/spinner.png ]; then
+                convert -size 128x128 xc:none -stroke "#4cc2ff" -fill none -strokewidth 8 \
+                  -draw "arc 8,8 120,120 0,300" \
+                  airootfs/usr/share/plymouth/themes/novatos/spinner.png
+              fi
+
+              # Generate Calamares branding logo
+              mkdir -p airootfs/usr/share/calamares/branding/novatos
+              if [ ! -f airootfs/usr/share/calamares/branding/novatos/logo.png ]; then
+                convert -size 256x256 xc:none -font DejaVu-Sans-Bold -pointsize 56 \
+                  -fill "#4cc2ff" -gravity center -annotate +0+0 "NovatOS" \
+                  airootfs/usr/share/calamares/branding/novatos/logo.png
+              fi
+
+              # Generate SDDM background
+              mkdir -p airootfs/usr/share/sddm/themes/novatos
+              if [ ! -f airootfs/usr/share/sddm/themes/novatos/background.jpg ]; then
+                cp airootfs/usr/share/wallpapers/novatos/default.jpg \
+                   airootfs/usr/share/sddm/themes/novatos/background.jpg
+              fi
+
+              # 8) Make scripts executable
+              chmod 0755 airootfs/usr/local/bin/novatos-* 2>/dev/null || true
+              chmod 0755 airootfs/etc/novatos/scripts/* 2>/dev/null || true
+              chmod 0755 airootfs/root/customize_airootfs.sh 2>/dev/null || true
+              chmod 0755 profiledef.sh
+
+              # 9) Run archiso
+              mkdir -p /work /out
+              # Use mkarchiso with our profile
+              mkarchiso -v -w /work -o /out .
+
+              # 10) List output
+              ls -la /out
+              sha256sum /out/*.iso > /out/SHA256SUMS.txt || true
+              cat /out/SHA256SUMS.txt
+            '
+
+      - name: List built artifacts
+        run: |
+          ls -lah out/
+          cat out/SHA256SUMS.txt || true
+
+      - name: Upload ISO as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: novatos-iso-${{ env.BUILD_TAG }}
+          path: |
+            out/*.iso
+            out/SHA256SUMS.txt
+          retention-days: 30
+          compression-level: 0  # ISOs are already compressed
+
+      - name: Create GitHub Release (on main push)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: rolling-${{ env.BUILD_TAG }}
+          name: NovatOS Rolling Build ${{ env.BUILD_TAG }}
+          body: |
+            # NovatOS Rolling Build
+
+            **Build date:** ${{ env.BUILD_DATE }}
+            **Commit:** ${{ github.sha }}
+
+            ## Download
+            - Get the `.iso` file below
+            - Verify with the SHA256 checksum in `SHA256SUMS.txt`
+
+            ## How to use
+            1. Flash the ISO to a USB stick with `dd` or Rufus / Ventoy / balenaEtcher
+            2. Boot from the USB (BIOS or UEFI)
+            3. Click "Install NovatOS" on the desktop to run Calamares
+            4. Or just use the live environment — everything works out of the box
+
+            ## What's inside
+            - Hyprland (Wayland, ~250 MB RAM idle)
+            - bauh app store (AUR + Flatpak + Snap + AppImage)
+            - Steam / Proton / Wine installable from store
+            - Full AMD/NVIDIA/Intel driver auto-detection
+            - Calamares installer
+            - Plymouth boot splash
+            - Custom SDDM login screen
+            - Windows-migrant welcome app + data migration tool
+          files: |
+            out/*.iso
+            out/SHA256SUMS.txt
+          prerelease: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/*.iso
+            out/SHA256SUMS.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

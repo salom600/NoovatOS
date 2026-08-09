@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Run with Wine
+Name[ar]=شغّل باستخدام Wine
+Name[fr]=Exécuter avec Wine
+Name[es]=Ejecutar con Wine
+Exec=novatos-windows-compat run %f
+Icon=wine
+Terminal=false
+NoDisplay=true
+MimeType=application/x-ms-dos-executable;application/x-msi;application/x-winexe;

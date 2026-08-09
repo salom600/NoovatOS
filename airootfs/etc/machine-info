@@ -1,0 +1,4 @@
+PRETTY_HOSTNAME="NovatOS Live"
+ICON_NAME=computer
+CHASSIS=laptop
+DEPLOYMENT=live

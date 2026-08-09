@@ -1,0 +1,70 @@
+# NovatOS Plymouth boot splash — script-based theme
+# Draws a centered animated spinner + "NovatOS" wordmark on a dark blue gradient.
+# Logo + wordmark are generated at build time; this script handles the animation.
+
+# --- Setup ---
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+# Background: dark blue gradient (top to bottom)
+bg_top = Image("background.png");
+bg_bottom = Image("background.png");
+
+# Wordmark image (rendered text on transparent background)
+logo_image = Image("logo.png");
+
+# Spinner
+spinner_image = Image("spinner.png");
+
+# State
+progress = 0;
+spinner_angle = 0;
+
+fun refresh_callback() {
+    # Redraw background
+    bg_sprite = Sprite();
+    bg_sprite.SetImage(bg_top);
+    bg_sprite.SetPosition(0, 0, -10000);
+
+    # Center logo
+    logo_sprite = Sprite();
+    logo_sprite.SetImage(logo_image.Scale(logo_image.GetWidth() * 0.4, logo_image.GetHeight() * 0.4));
+    logo_x = (screen_width  - logo_image.GetWidth()  * 0.4) / 2;
+    logo_y = (screen_height - logo_image.GetHeight() * 0.4) / 2 - 80;
+    logo_sprite.SetPosition(logo_x, logo_y, -9999);
+
+    # Progress bar (under the logo)
+    bar_width  = 320;
+    bar_height = 4;
+    bar_x = (screen_width - bar_width) / 2;
+    bar_y = logo_y + logo_image.GetHeight() * 0.4 + 30;
+
+    bar_bg = Sprite();
+    bar_bg.SetImage(Image(bar_width, bar_height, 0.2, 0.2, 0.25, 0.6));
+    bar_bg.SetPosition(bar_x, bar_y, -9999);
+
+    bar_fg = Sprite();
+    bar_fg.SetImage(Image(bar_width * progress, bar_height, 0.3, 0.76, 1.0, 1.0));
+    bar_fg.SetPosition(bar_x, bar_y, -9998);
+
+    # Spinner (rotating) — kept simple for low-end GPUs
+    spinner_sprite = Sprite();
+    spinner_scaled = spinner_image.Scale(48, 48);
+    spinner_sprite.SetImage(spinner_scaled);
+    spinner_sprite.SetPosition((screen_width - 48) / 2, bar_y + 30, -9999);
+    spinner_sprite.SetOpacity(0.85);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Boot progress callback
+fun boot_progress_callback(progress_val) {
+    progress = progress_val;
+}
+Plymouth.SetBootProgressFunction(boot_progress_callback);
+
+# Quit callback — fade out
+fun quit_callback() {
+    progress = 1.0;
+}
+Plymouth.SetQuitFunction(quit_callback);
