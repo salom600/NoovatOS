@@ -10,9 +10,10 @@ iso_version="$(date +%Y.%m.%d)"
 iso_install_dir="novatos"
 iso_bootloader="grub"
 # Hybrid ISO: BIOS (syslinux+grub) + UEFI (grub) + bootable from USB via Ventoy/Rufus/dd
+# Note: mkarchiso reads 'iso_bootmodes' (string) and splits it into its internal
+# 'bootmodes' array. Do NOT set 'bootmodes' here — it would overwrite the array
+# with a scalar string and break validation.
 iso_bootmodes="bios.syslinux.mbr bios.syslinux.eltorito uefi-x64.grub.esp uefi-x64.grub.eltorito"
-# Also export as 'bootmodes' (some mkarchiso versions read this directly)
-bootmodes="$iso_bootmodes"
 arch="x86_64"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
