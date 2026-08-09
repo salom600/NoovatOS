@@ -72,7 +72,7 @@ jobs:
             -e BUILD_DATE="${BUILD_DATE}" \
             -e BUILD_TAG="${BUILD_TAG}" \
             archlinux:latest \
-            bash -eux -c '
+            bash -eu -c '
               # 1) Update container
               pacman -Syu --noconfirm
 
@@ -82,7 +82,8 @@ jobs:
                 grub efibootmgr edk2-ovmf edk2-shell \
                 xorriso parted curl wget rsync git bash python jq \
                 pacman-contrib reflector imagemagick \
-                systemd openssh
+                systemd openssh \
+                ttf-dejavu fontconfig
 
               # 3) Init pacman keyring
               pacman-key --init
@@ -108,54 +109,76 @@ jobs:
               cat /etc/pacman.d/mirrorlist | head -5
 
               # 7) Generate NovatOS wallpaper + Plymouth logo if missing
+              #    (Non-fatal — if ImageMagick font lookup fails, fall back to a
+              #     solid-color wallpaper. The ISO still builds.)
               mkdir -p airootfs/usr/share/wallpapers/novatos
               mkdir -p airootfs/usr/share/plymouth/themes/novatos
+
+              # Refresh font cache (in case ttf-dejavu was just installed)
+              fc-cache -f >/dev/null 2>&1 || true
+
+              # Pick the best available bold font for ImageMagick
+              NOVATOS_FONT="$(fc-match -f '%{family}\n' :bold 2>/dev/null | head -1)"
+              [ -z "$NOVATOS_FONT" ] && NOVATOS_FONT="DejaVu-Sans-Bold"
+              echo "Using font: $NOVATOS_FONT"
 
               # Generate wallpaper (1920x1080 gradient with NovatOS wordmark)
               if [ ! -f airootfs/usr/share/wallpapers/novatos/default.jpg ]; then
                 convert -size 1920x1080 \
                   gradient:"#0067c0"-"#0a1f3c" \
-                  -font DejaVu-Sans-Bold -pointsize 96 -fill white -gravity north \
+                  -font "$NOVATOS_FONT" -pointsize 96 -fill white -gravity north \
                   -annotate +0+80 "NovatOS" \
                   -pointsize 32 -fill "#4cc2ff" \
                   -annotate +0+200 "The lightest, newest, most powerful Linux" \
-                  airootfs/usr/share/wallpapers/novatos/default.jpg
+                  airootfs/usr/share/wallpapers/novatos/default.jpg 2>/dev/null \
+                  || convert -size 1920x1080 gradient:"#0067c0"-"#0a1f3c" \
+                       airootfs/usr/share/wallpapers/novatos/default.jpg 2>/dev/null \
+                  || true
               fi
 
               if [ ! -f airootfs/usr/share/wallpapers/novatos/solid-blue.png ]; then
                 convert -size 1920x1080 xc:"#0a1f3c" \
-                  airootfs/usr/share/wallpapers/novatos/solid-blue.png
+                  airootfs/usr/share/wallpapers/novatos/solid-blue.png 2>/dev/null || true
               fi
 
               # Generate Plymouth background + logo (transparent PNGs)
               if [ ! -f airootfs/usr/share/plymouth/themes/novatos/background.png ]; then
                 convert -size 1920x1080 xc:"#0a1f3c" \
-                  airootfs/usr/share/plymouth/themes/novatos/background.png
+                  airootfs/usr/share/plymouth/themes/novatos/background.png 2>/dev/null || true
               fi
               if [ ! -f airootfs/usr/share/plymouth/themes/novatos/logo.png ]; then
-                convert -size 800x200 xc:none -font DejaVu-Sans-Bold -pointsize 96 \
+                convert -size 800x200 xc:none -font "$NOVATOS_FONT" -pointsize 96 \
                   -fill white -gravity center -annotate +0+0 "NovatOS" \
-                  airootfs/usr/share/plymouth/themes/novatos/logo.png
+                  airootfs/usr/share/plymouth/themes/novatos/logo.png 2>/dev/null \
+                  || convert -size 800x200 xc:none \
+                       airootfs/usr/share/plymouth/themes/novatos/logo.png 2>/dev/null \
+                  || true
               fi
               if [ ! -f airootfs/usr/share/plymouth/themes/novatos/spinner.png ]; then
                 convert -size 128x128 xc:none -stroke "#4cc2ff" -fill none -strokewidth 8 \
                   -draw "arc 8,8 120,120 0,300" \
-                  airootfs/usr/share/plymouth/themes/novatos/spinner.png
+                  airootfs/usr/share/plymouth/themes/novatos/spinner.png 2>/dev/null || true
               fi
 
               # Generate Calamares branding logo
               mkdir -p airootfs/usr/share/calamares/branding/novatos
               if [ ! -f airootfs/usr/share/calamares/branding/novatos/logo.png ]; then
-                convert -size 256x256 xc:none -font DejaVu-Sans-Bold -pointsize 56 \
+                convert -size 256x256 xc:none -font "$NOVATOS_FONT" -pointsize 56 \
                   -fill "#4cc2ff" -gravity center -annotate +0+0 "NovatOS" \
-                  airootfs/usr/share/calamares/branding/novatos/logo.png
+                  airootfs/usr/share/calamares/branding/novatos/logo.png 2>/dev/null \
+                  || convert -size 256x256 xc:"#4cc2ff" \
+                       airootfs/usr/share/calamares/branding/novatos/logo.png 2>/dev/null \
+                  || true
               fi
 
               # Generate SDDM background
               mkdir -p airootfs/usr/share/sddm/themes/novatos
               if [ ! -f airootfs/usr/share/sddm/themes/novatos/background.jpg ]; then
                 cp airootfs/usr/share/wallpapers/novatos/default.jpg \
-                   airootfs/usr/share/sddm/themes/novatos/background.jpg
+                   airootfs/usr/share/sddm/themes/novatos/background.jpg 2>/dev/null \
+                  || convert -size 1920x1080 xc:"#0a1f3c" \
+                       airootfs/usr/share/sddm/themes/novatos/background.jpg 2>/dev/null \
+                  || true
               fi
 
               # 8) Make scripts executable
