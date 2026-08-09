@@ -79,9 +79,10 @@ jobs:
               # 2) Install archiso + build deps
               pacman -S --noconfirm --needed \
                 archiso mkinitcpio squashfs-tools mtools dosfstools \
-                grub efibootmgr systemd-boot edk2-ovmf edk2-shell \
+                grub efibootmgr edk2-ovmf edk2-shell \
                 xorriso parted curl wget rsync git bash python jq \
-                pacman-contrib reflector imagemagick
+                pacman-contrib reflector imagemagick \
+                systemd openssh
 
               # 3) Init pacman keyring
               pacman-key --init
