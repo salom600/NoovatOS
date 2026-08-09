@@ -109,7 +109,6 @@ sway
 swayidle
 swaylock
 swaybg
-wlroots
 
 # === Wayland UI helpers ===
 waybar
@@ -127,14 +126,11 @@ brightnessctl
 wlogout
 cliphist
 clipman
-pavucontrol
 playerctl
 yad
 zenity
 dunst
 libnotify
-notify-osd
-xdg-desktop-portal-hyprland
 
 # === Display manager ===
 sddm
@@ -202,7 +198,8 @@ mousepad
 galculator
 
 # === App store: bauh (unified AUR + Flatpak + Snap + AppImage + Web Apps) ===
-bauh
+# NOTE: bauh is AUR-only. It's installed on first boot by
+# /etc/novatos/scripts/setup-flatpak-remotes via chaotic-aur or makepkg.
 flatpak
 snapd
 pacman-contrib
@@ -254,10 +251,6 @@ lib32-primus
 
 # AMD-specific (legacy + modern)
 libdrm
-libdrm-amdgpu
-libdrm-radeon
-libdrm-intel
-libdrm-nouveau
 lib32-libdrm
 
 # === Input / laptop / power ===
@@ -332,8 +325,6 @@ fastfetch
 hwinfo
 smartmontools
 hdparm
-pciutils
-usbutils
 cryptsetup
 ecryptfs-utils
 fscrypt
@@ -341,7 +332,6 @@ fscrypt
 # === Disk / partition tools ===
 gparted
 gnome-disk-utility
-smartmontools
 testdisk
 parted
 
@@ -356,7 +346,6 @@ virtualbox-guest-modules-arch
 # === VMware guest tools ===
 open-vm-tools
 open-vm-tools-desktop
-xf86-video-vmware
 
 # === Security ===
 ufw
@@ -395,7 +384,6 @@ mpv
 # === Live environment helpers (archiso required) ===
 arch-install-scripts
 archiso
-mkinitcpio-archiso
 mkinitcpio-nfs-utils
 nfs-utils
 nbd
@@ -403,12 +391,8 @@ darkhttpd
 irssi
 lftp
 mc
-parted
 socat
 sshpass
-vpnkit
 
 # === Initramfs tooling ===
-mkinitcpio
-mkinitcpio-archiso
 busybox

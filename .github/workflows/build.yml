@@ -97,16 +97,51 @@ jobs:
                 echo "WARN: Could not import chaotic-aur key — continuing without it"
               pacman-key --lsign-key 3056513887B78AEB 2>/dev/null || true
 
-              # Pre-fetch the chaotic-aur db (so package resolution works at build time)
-              pacman -Sy 2>/dev/null || true
+              # 5) Generate a RELIABLE mirrorlist FIRST (before any pacman -Sy).
+              #    Use reflector with generous timeouts, then prepend known-good mirrors
+              #    as fallback so the build doesn't fail on flaky mirrors.
+              echo "Generating mirrorlist..."
+              # Start with known-good mirrors (these are very reliable)
+              cat > /etc/pacman.d/mirrorlist <<'MIRRORS'
+Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch
+Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch
+Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch
+Server = https://archive.archlinux.org/repos/last/$repo/os/$arch
+MIRRORS
 
-              # 5) Generate mirrorlist
-              reflector --latest 50 --protocol https --sort rate --save /etc/pacman.d/mirrorlist || \
-                curl -s "https://archlinux.org/mirrorlist/?country=all&protocol=https&use_mirror_status=on" \
-                  | sed "s/^#Server/Server/" > /etc/pacman.d/mirrorlist
+              # Try to augment with reflector (non-fatal if it fails)
+              reflector --latest 20 --protocol https --sort rate \
+                --download-timeout 30 --connection-timeout 30 \
+                --save /tmp/reflector-mirrorlist 2>/dev/null \
+                && cat /tmp/reflector-mirrorlist >> /etc/pacman.d/mirrorlist \
+                || echo "WARN: reflector failed, using hardcoded mirrors only"
 
-              # 6) Sanity check
-              cat /etc/pacman.d/mirrorlist | head -5
+              echo "=== Mirrorlist ==="
+              cat /etc/pacman.d/mirrorlist | head -10
+
+              # 6) Sync databases (MUST succeed — archiso needs all repo DBs)
+              echo "Syncing pacman databases..."
+              pacman -Sy --noconfirm || {
+                echo "ERROR: pacman -Sy failed. Trying with fallback mirrors..."
+                # Reset to just the known-good mirrors
+                cat > /etc/pacman.d/mirrorlist <<'MIRRORS'
+Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch
+Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch
+Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch
+Server = https://archive.archlinux.org/repos/last/$repo/os/$arch
+MIRRORS
+                pacman -Sy --noconfirm
+              }
+
+              # Verify all repos are accessible
+              echo "=== Repo database check ==="
+              for repo in core extra multilib chaotic-aur; do
+                if pacman -Sl "$repo" >/dev/null 2>&1; then
+                  echo "  ✓ $repo: OK ($(pacman -Sl "$repo" 2>/dev/null | wc -l) packages)"
+                else
+                  echo "  ✗ $repo: FAILED"
+                fi
+              done
 
               # 7) Generate NovatOS wallpaper + Plymouth logo if missing
               #    (Non-fatal — if ImageMagick font lookup fails, fall back to a
