@@ -98,47 +98,33 @@ jobs:
               pacman-key --lsign-key 3056513887B78AEB 2>/dev/null || true
 
               # 5) Generate a RELIABLE mirrorlist FIRST (before any pacman -Sy).
-              #    Use reflector with generous timeouts, then prepend known-good mirrors
-              #    as fallback so the build doesn't fail on flaky mirrors.
+              #    Use hardcoded reliable mirrors so the build doesn't fail on
+              #    flaky reflector-selected mirrors.
               echo "Generating mirrorlist..."
-              # Ensure /etc/pacman.d exists (may not in fresh Docker container)
               mkdir -p /etc/pacman.d 2>/dev/null || true
               chmod 755 /etc/pacman.d 2>/dev/null || true
-              # Start with known-good mirrors (these are very reliable)
+              # Write known-good mirrors (these are very reliable)
               printf '%s\n' \
                 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
                 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
                 'Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch' \
                 'Server = https://archive.archlinux.org/repos/last/$repo/os/$arch' \
-                > /etc/pacman.d/mirrorlist 2>/dev/null || {
-                  # If we can't write to /etc/pacman.d, the existing mirrorlist
-                  # from the archlinux container is fine — just continue.
-                  echo "WARN: Could not write mirrorlist, using container default"
-                }
+                > /etc/pacman.d/mirrorlist 2>/dev/null || true
 
               # Try to augment with reflector (non-fatal if it fails)
               reflector --latest 20 --protocol https --sort rate \
                 --download-timeout 30 --connection-timeout 30 \
                 --save /tmp/reflector-mirrorlist 2>/dev/null \
-                && cat /tmp/reflector-mirrorlist >> /etc/pacman.d/mirrorlist \
+                && cat /tmp/reflector-mirrorlist >> /etc/pacman.d/mirrorlist 2>/dev/null \
                 || echo "WARN: reflector failed, using hardcoded mirrors only"
 
               echo "=== Mirrorlist ==="
-              cat /etc/pacman.d/mirrorlist | head -10
+              head -10 /etc/pacman.d/mirrorlist 2>/dev/null || echo "(mirrorlist not readable)"
 
               # 6) Sync databases (MUST succeed — archiso needs all repo DBs)
               echo "Syncing pacman databases..."
-              pacman -Sy --noconfirm || {
-                echo "ERROR: pacman -Sy failed. Trying with fallback mirrors..."
-                # Reset to just the known-good mirrors
-                printf '%s\n' \
-                  'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
-                  'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' \
-                  'Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch' \
-                  'Server = https://archive.archlinux.org/repos/last/$repo/os/$arch' \
-                  > /etc/pacman.d/mirrorlist
-                pacman -Sy --noconfirm
-              }
+              pacman -Sy --noconfirm
+              echo "pacman -Sy exit code: $?"
 
               # Verify all repos are accessible
               echo "=== Repo database check ==="
